@@ -1,9 +1,10 @@
 import processing.core.PGraphics
 
-class Redstone(loc: Vec2<Int>, parent: Map) : ConnectedTile(loc, 8, 1, parent),
-    Powerable, RedstonePropagate, Update {
+class Redstone(loc: Vec2<Int>, parent: Map) : ConnectedTile(loc, 16, 1, parent),
+    Powerable, RedstonePropagate, Update, LogicState {
+    override var state = false
     var updatedThisPass = false
-    var state = false
+//    var state = false
     override var powered = false
 
     override fun draw(g: PGraphics) {

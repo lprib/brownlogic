@@ -1,31 +1,43 @@
-import processing.core.PGraphics
-
-class AndGate(loc: Vec2<Int>, map: Map) :
-    SpriteSheetTile(loc, 41, map, 1), RedstonePropagate {
+abstract class LogicGate(loc: Vec2<Int>, map: Map, spriteSheetIndex: Int) :
+    SpriteSheetTile(loc, spriteSheetIndex, map, 1), RedstonePropagate {
     override fun propagateActivation() {
-        val left = map.getTile(loc + Vec2(-1, 0))
-        val right = map.getTile(loc + Vec2(1, 0))
-        val output = map.getTile(loc + Vec2(0, 1))
+        val neighbors = getNeighbors()
+        val output = eval(
+            neighbors[3]?.logicValue() ?: false,
+            neighbors[3]?.logicValue() ?: false,
+            neighbors[3]?.logicValue() ?: false
+        )
 
-        if (left is Redstone && left.state && right is Redstone && right.state && output is RedstonePropagate) {
-            output.propagateActivation()
+        val outputTile = neighbors[2]
+        if (output && outputTile is RedstonePropagate) {
+            outputTile.propagateActivation()
         }
     }
 
+
+    abstract fun eval(a: Boolean, b: Boolean, c: Boolean): Boolean
+}
+
+class AndGate(loc: Vec2<Int>, map: Map) : LogicGate(loc, map, 9) {
+    override fun eval(a: Boolean, b: Boolean, c: Boolean): Boolean = a && b && c
+}
+
+class OrGate(loc: Vec2<Int>, map: Map) : LogicGate(loc, map, 8) {
+    override fun eval(a: Boolean, b: Boolean, c: Boolean): Boolean = a || b || c
 }
 
 //todo reorganise files
 
 class Lever(loc: Vec2<Int>, map: Map) :
-    SpriteSheetTile(loc, 43, map, 1),
+    SpriteSheetTile(loc, 11, map, 1),
     Interactive, Update {
-    private var state = false
+    var state = false
     private var changeQueued = false
 
     override fun interact() {
         changeQueued = true
         //swap the display texture. The actual redstone effect will happen in the update() method
-        spriteSheetIndex = if (state) 43 else 44
+        spriteSheetIndex = if (state) 11 else 12
     }
 
     override fun update() {
@@ -36,6 +48,44 @@ class Lever(loc: Vec2<Int>, map: Map) :
         if (state) {
             getNeighbors().filterIsInstance<RedstonePropagate>().forEach { it.propagateActivation() }
         }
+    }
+
+}
+
+class Lamp(loc: Vec2<Int>, map: Map) :
+    SpriteSheetTile(loc, 13, map, 1), RedstoneListener {
+    override fun onRedstoneState(state: Boolean) {
+        spriteSheetIndex = if (state) 14 else 13
+    }
+}
+
+class Bridge(loc: Vec2<Int>, map: Map) :
+    SpriteSheetTile(loc, 15, map, 1), RedstonePropagate {
+    override fun propagateActivation() {
+        val n = getNeighbors()
+        if (n[0]?.logicValue() == true) {
+            val out = n[2]
+            if (out is RedstonePropagate) out.propagateActivation()
+        }
+        if (n[1]?.logicValue() == true) {
+            val out = n[3]
+            if (out is RedstonePropagate) out.propagateActivation()
+        }
+        if (n[2]?.logicValue() == true) {
+            val out = n[0]
+            if (out is RedstonePropagate) out.propagateActivation()
+        }
+        if (n[3]?.logicValue() == true) {
+            val out = n[1]
+            if (out is RedstonePropagate) out.propagateActivation()
+        }
+    }
+}
+
+class Transistor(loc: Vec2<Int>, map: Map) :
+    SpriteSheetTile(loc, 10, map, 1), RedstonePropagate {
+    override fun propagateActivation() {
+        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
     }
 
 }

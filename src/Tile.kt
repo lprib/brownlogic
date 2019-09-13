@@ -1,11 +1,12 @@
 import processing.core.PGraphics
+import processing.core.PImage
 
 abstract class Tile(val loc: Vec2<Int>, val map: Map, val connectionClass: Int = 0) {
     abstract fun draw(g: PGraphics)
 
     //up, left, down, right
     //ie clockwise starting with up
-    protected fun getNeighbors(): Array<Tile?> {
+    fun getNeighbors(): Array<Tile?> {
         return arrayOf(
             map.getTile(loc + Vec2(0, -1)),
             map.getTile(loc + Vec2(-1, 0)),
@@ -14,77 +15,55 @@ abstract class Tile(val loc: Vec2<Int>, val map: Map, val connectionClass: Int =
         )
     }
 
-    fun updateNeighborConnectedTextures() {
+    //called after this tile has been inserted into the map
+    //ie neighbor tiles know about this tile
+    open fun onMapPlace() {
+        updateNeighborConnectedTextures()
+    }
+
+    private fun updateNeighborConnectedTextures() {
         for (n in getNeighbors()) {
-            if (n is ConnectedTile && n.connectionClass == connectionClass) {
+            if (n is ConnectedTile) {
                 n.updateConnections()
             }
         }
     }
+
+    fun logicValue(): Boolean = this is LogicState && this.state
 }
 
+//Things that can be powered by switches, etc
+//this does NOT include being powered by redstone dust, that is handled by RedstonePropagate
 interface Powerable {
     var powered: Boolean
 }
 
+//redstone signal will propagate to tiles which implement this
 interface RedstonePropagate {
     fun propagateActivation()
 }
 
+//tiles that update each frame
 interface Update {
     fun update()
 }
 
+//tiles that can be clicked
 interface Interactive {
     fun interact()
 }
 
-open class SpriteSheetTile(
-    loc: Vec2<Int>,
-    protected var spriteSheetIndex: Int,
-    map: Map,
-    connectionClass: Int = 0
-) :
-    Tile(loc, map, connectionClass) {
-
-    override fun draw(g: PGraphics) {
-        g.image(
-            map.spriteSheet[spriteSheetIndex],
-            (loc.x * Map.TILE_SIZE_PIXELS).toFloat(),
-            (loc.y * Map.TILE_SIZE_PIXELS).toFloat(),
-            Map.TILE_SIZE_PIXELS.toFloat(),
-            Map.TILE_SIZE_PIXELS.toFloat()
-        )
-    }
+//tiles that have a logic state that can be examined by logic gates, etc
+interface LogicState {
+    var state: Boolean
 }
 
 
-//marching squares
-open class ConnectedTile(loc: Vec2<Int>, val spriteSheetStartIndex: Int, connectionClass: Int, map: Map) :
-    Tile(loc, map, connectionClass) {
-    protected var spriteSheetOffset = 0
+//for tiles which are affected by redstone but DO NOT output redstone themselves
+//(use RedstonePropagate if you want be to part of the propagation process and
+//send out your own redstone propagations
 
-    override fun draw(g: PGraphics) {
-        g.image(
-            map.spriteSheet[spriteSheetStartIndex + spriteSheetOffset],
-            (loc.x * Map.TILE_SIZE_PIXELS).toFloat(),
-            (loc.y * Map.TILE_SIZE_PIXELS).toFloat(),
-            Map.TILE_SIZE_PIXELS.toFloat(),
-            Map.TILE_SIZE_PIXELS.toFloat()
-        )
-    }
-
-    fun updateConnections() {
-        spriteSheetOffset =
-            connectionExists(Vec2(0, -1)) +
-                    2 * connectionExists(Vec2(-1, 0)) +
-                    4 * connectionExists(Vec2(0, 1)) +
-                    8 * connectionExists(Vec2(1, 0))
-    }
-
-    protected fun connectionExists(offset: Vec2<Int>): Int {
-        val other = map.getTile(loc + offset)
-        return if (other?.connectionClass == connectionClass) 1 else 0
-    }
+//this is run after all redstone has been propagated
+interface RedstoneListener {
+    fun onRedstoneState(state: Boolean)
 }
-

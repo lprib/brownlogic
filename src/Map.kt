@@ -13,6 +13,7 @@ class Map(val spriteSheet: SpriteSheet, val width: Int, val height: Int) {
 
     fun setTile(loc: Vec2<Int>, tile: Tile) {
         tiles[loc.y * width + loc.x] = tile
+        tile.onMapPlace()
     }
 
     fun getTile(loc: Vec2<Int>): Tile? {
@@ -34,6 +35,20 @@ class Map(val spriteSheet: SpriteSheet, val width: Int, val height: Int) {
         redstone.forEach { it.state = false }
         tiles.filterIsInstance<Update>().forEach { it.update() }
         redstone.forEach { it.updatedThisPass = false }
+
+        //after redstone propagation, notify listeners of their new redstone state
+        for (tile in tiles) {
+            if (tile is RedstoneListener) {
+                var redstoneVal = false
+                for (n in tile.getNeighbors()) {
+                    if (n is LogicState && n.state) {
+                        redstoneVal = true
+                        break
+                    }
+                }
+                tile.onRedstoneState(redstoneVal)
+            }
+        }
     }
 
     companion object {
